@@ -127,7 +127,7 @@ class CodeEditKeychain {
      */
     func get(_ key: String) -> String? {
         if let data = getData(key) {
-
+            // Use the optional version here
             if let currentString = String(data: data, encoding: .utf8) {
                 return currentString
             }

@@ -19,7 +19,6 @@ struct SourceControlNavigatorRepositoryView: View {
     @State var showRenameBranch: Bool = false
     @State var fromBranch: GitBranch?
     @State var expandedIds = [String: Bool]()
-    @State var addRemoteIsPresented: Bool = false
     @State var applyStashedChangesIsPresented: Bool = false
     @State var isPresentingConfirmDeleteBranch: Bool = false
     @State var branchToDelete: GitBranch?
@@ -70,19 +69,14 @@ struct SourceControlNavigatorRepositoryView: View {
             }
         )
         .sheet(isPresented: $showNewBranch) {
-            SourceControlNavigatorNewBranchView(
-                sourceControlManager: sourceControlManager,
-                fromBranch: fromBranch
+            SourceControlNewBranchView(
+                fromBranch: $fromBranch
             )
         }
         .sheet(isPresented: $showRenameBranch) {
-            SourceControlNavigatorRenameBranchView(
-                sourceControlManager: sourceControlManager,
-                fromBranch: fromBranch
+            SourceControlRenameBranchView(
+                fromBranch: $fromBranch
             )
-        }
-        .sheet(isPresented: $addRemoteIsPresented) {
-            SourceControlAddRemoteView()
         }
         .alert(
             sourceControlManager.changedFiles.isEmpty
@@ -94,7 +88,7 @@ struct SourceControlNavigatorRepositoryView: View {
                 Button("Apply") {
                     if let stashEntry = stashEntryToApply {
                         Task {
-                            try await sourceControlManager.applyStashEntry(stashEntry: stashEntryToApply)
+                            try await sourceControlManager.applyStashEntry(stashEntry: stashEntry)
                             applyStashedChangesIsPresented = false
                             stashEntryToApply = nil
                         }

@@ -39,6 +39,12 @@ struct Theme: Identifiable, Codable, Equatable, Hashable, Loopable {
     /// An URL for reference
     var distributionURL: String
 
+    /// If the theme is bundled with CodeEdit or not
+    var isBundled: Bool = false
+
+    /// The URL for the theme file
+    var fileURL: URL?
+
     /// The `unique name` of the theme
     var name: String
 
@@ -66,6 +72,7 @@ struct Theme: Identifiable, Codable, Equatable, Hashable, Loopable {
         license: String,
         metadataDescription: String,
         distributionURL: String,
+        isBundled: Bool,
         name: String,
         displayName: String,
         appearance: ThemeType,
@@ -75,6 +82,7 @@ struct Theme: Identifiable, Codable, Equatable, Hashable, Loopable {
         self.license = license
         self.metadataDescription = metadataDescription
         self.distributionURL = distributionURL
+        self.isBundled = isBundled
         self.name = name
         self.displayName = displayName
         self.appearance = appearance
@@ -104,9 +112,39 @@ extension Theme {
 
         /// The 24-bit hex string of the color (e.g. #123456)
         var color: String
+        var bold: Bool
+        var italic: Bool
 
-        init(color: String) {
+        init(color: String, bold: Bool = false, italic: Bool = false) {
             self.color = color
+            self.bold = bold
+            self.italic = italic
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            self.color = try container.decode(String.self, forKey: .color)
+            self.bold = try container.decodeIfPresent(Bool.self, forKey: .bold) ?? false
+            self.italic = try container.decodeIfPresent(Bool.self, forKey: .italic) ?? false
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(color, forKey: .color)
+
+            if bold {
+                try container.encode(bold, forKey: .bold)
+            }
+
+            if italic {
+                try container.encode(italic, forKey: .italic)
+            }
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case color
+            case bold
+            case italic
         }
 
         /// The `SwiftUI` of ``color``
@@ -138,41 +176,41 @@ extension Theme {
         var editorTheme: EditorTheme {
             get {
                 .init(
-                    text: text.nsColor,
+                    text: .init(color: text.nsColor),
                     insertionPoint: insertionPoint.nsColor,
-                    invisibles: invisibles.nsColor,
+                    invisibles: .init(color: invisibles.nsColor),
                     background: background.nsColor,
                     lineHighlight: lineHighlight.nsColor,
                     selection: selection.nsColor,
-                    keywords: keywords.nsColor,
-                    commands: commands.nsColor,
-                    types: types.nsColor,
-                    attributes: attributes.nsColor,
-                    variables: variables.nsColor,
-                    values: values.nsColor,
-                    numbers: numbers.nsColor,
-                    strings: strings.nsColor,
-                    characters: characters.nsColor,
-                    comments: comments.nsColor
+                    keywords: .init(color: keywords.nsColor),
+                    commands: .init(color: commands.nsColor),
+                    types: .init(color: types.nsColor),
+                    attributes: .init(color: attributes.nsColor),
+                    variables: .init(color: variables.nsColor),
+                    values: .init(color: values.nsColor),
+                    numbers: .init(color: numbers.nsColor),
+                    strings: .init(color: strings.nsColor),
+                    characters: .init(color: characters.nsColor),
+                    comments: .init(color: comments.nsColor)
                 )
             }
             set {
-                self.text.nsColor = newValue.text
+                self.text.nsColor = newValue.text.color
                 self.insertionPoint.nsColor = newValue.insertionPoint
-                self.invisibles.nsColor = newValue.invisibles
+                self.invisibles.nsColor = newValue.invisibles.color
                 self.background.nsColor = newValue.background
                 self.lineHighlight.nsColor = newValue.lineHighlight
                 self.selection.nsColor = newValue.selection
-                self.keywords.nsColor = newValue.keywords
-                self.commands.nsColor = newValue.commands
-                self.types.nsColor = newValue.types
-                self.attributes.nsColor = newValue.attributes
-                self.variables.nsColor = newValue.variables
-                self.values.nsColor = newValue.values
-                self.numbers.nsColor = newValue.numbers
-                self.strings.nsColor = newValue.strings
-                self.characters.nsColor = newValue.characters
-                self.comments.nsColor = newValue.comments
+                self.keywords.nsColor = newValue.keywords.color
+                self.commands.nsColor = newValue.commands.color
+                self.types.nsColor = newValue.types.color
+                self.attributes.nsColor = newValue.attributes.color
+                self.variables.nsColor = newValue.variables.color
+                self.values.nsColor = newValue.values.color
+                self.numbers.nsColor = newValue.numbers.color
+                self.strings.nsColor = newValue.strings.color
+                self.characters.nsColor = newValue.characters.color
+                self.comments.nsColor = newValue.comments.color
             }
         }
 

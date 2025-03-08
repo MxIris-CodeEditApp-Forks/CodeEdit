@@ -8,10 +8,12 @@
 import SwiftUI
 
 struct FileCommands: Commands {
+    static let recentProjectsMenu = RecentProjectsMenu()
+
     @Environment(\.openWindow)
     private var openWindow
 
-    @State var windowController: CodeEditWindowController?
+    @UpdatingWindowController var windowController
 
     @FocusedObject var utilityAreaViewModel: UtilityAreaViewModel?
 
@@ -29,8 +31,8 @@ struct FileCommands: Commands {
                 .keyboardShortcut("o")
 
                 // Leave this empty, is done through a hidden API in WindowCommands/Utils/CommandsFixes.swift
-                // This can't be done in SwiftUI Commands yet, as they don't support images in menu items.
-                Menu("Open Recent") {}
+                // We set this with a custom NSMenu. See WindowCommands/Utils/RecentProjectsMenu.swift
+                Menu("Open Recent") { }
 
                 Button("Open Quickly") {
                     NSApp.sendAction(#selector(CodeEditWindowController.openQuickly(_:)), to: nil, from: nil)
@@ -44,7 +46,7 @@ struct FileCommands: Commands {
                 if NSApp.target(forAction: #selector(CodeEditWindowController.closeCurrentTab(_:))) != nil {
                     NSApp.sendAction(#selector(CodeEditWindowController.closeCurrentTab(_:)), to: nil, from: nil)
                 } else {
-                    NSApp.sendAction(#selector(NSWindow.close), to: nil, from: nil)
+                    NSApp.sendAction(#selector(NSWindow.performClose(_:)), to: NSApp.keyWindow, from: nil)
                 }
             }
             .keyboardShortcut("w")
@@ -57,19 +59,18 @@ struct FileCommands: Commands {
                         from: nil
                     )
                 } else {
-                    NSApp.sendAction(#selector(NSWindow.close), to: nil, from: nil)
+                    NSApp.sendAction(#selector(NSWindow.performClose(_:)), to: NSApp.keyWindow, from: nil)
                 }
             }
             .keyboardShortcut("w", modifiers: [.control, .shift, .command])
 
             Button("Close Window") {
-                NSApp.sendAction(#selector(NSWindow.close), to: nil, from: nil)
+                NSApp.sendAction(#selector(NSWindow.performClose(_:)), to: NSApp.keyWindow, from: nil)
             }
             .keyboardShortcut("w", modifiers: [.shift, .command])
 
             Button("Close Workspace") {
-                guard let keyWindow = NSApplication.shared.keyWindow else { return }
-                NSApp.sendAction(#selector(NSWindow.close), to: keyWindow, from: nil)
+                NSApp.sendAction(#selector(NSWindow.performClose(_:)), to: NSApp.keyWindow, from: nil)
             }
             .keyboardShortcut("w", modifiers: [.control, .option, .command])
             .disabled(!(NSApplication.shared.keyWindow?.windowController is CodeEditWindowController))
@@ -87,9 +88,6 @@ struct FileCommands: Commands {
                 NSApp.sendAction(#selector(CodeEditWindowController.openWorkspaceSettings(_:)), to: nil, from: nil)
             }
             .disabled(windowController?.workspace == nil)
-            .onReceive(NSApp.publisher(for: \.keyWindow)) { window in
-                windowController = window?.windowController as? CodeEditWindowController
-            }
 
             Divider()
 

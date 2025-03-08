@@ -26,26 +26,45 @@ import Combine
 /// loading all intermediate subdirectories (from the nearest cached parent to the file) has not been done yet and doing
 /// so would be unnecessary.
 ///
-/// An example of this is in the ``QuickOpenView``. This view finds a file URL via a search bar, and needs to display a
-/// quick preview of the file. There's a good chance the file is deep in some subdirectory of the workspace, so fetching
-/// it from the ``CEWorkspaceFileManager`` may require loading and caching multiple directories. Instead, it just
-/// makes a disconnected object and uses it for the preview. Then, when opening the file in the workspace it forces the
-/// file to be loaded and cached.
+/// An example of this is in the ``OpenQuicklyView``. This view finds a file URL via a search bar, and needs to display
+/// a quick preview of the file. There's a good chance the file is deep in some subdirectory of the workspace, so
+/// fetching it from the ``CEWorkspaceFileManager`` may require loading and caching multiple directories. Instead, it
+/// just makes a disconnected object and uses it for the preview. Then, when opening the file in the workspace it
+/// forces the file to be loaded and cached.
 final class CEWorkspaceFile: Codable, Comparable, Hashable, Identifiable, EditorTabRepresentable {
 
     /// The id of the ``CEWorkspaceFile``.
-    ///
-    /// This is equal to `url.relativePath`
-    var id: String { url.relativePath }
+    var id: String
 
     /// Returns the file name (e.g.: `Package.swift`)
     var name: String { url.lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     /// Returns the extension of the file or an empty string if no extension is present.
-    var type: FileIcon.FileType { .init(rawValue: url.pathExtension) ?? .txt }
+    var type: FileIcon.FileType {
+        let filename = url.fileName
+
+        /// First, check if there is a valid file extension.
+        if let type = FileIcon.FileType(rawValue: filename) {
+            return type
+        } else {
+            /// If  there's not, verifies every extension for a valid type.
+            let extensions = filename.dropFirst().components(separatedBy: ".").reversed()
+
+            return extensions
+                .compactMap { FileIcon.FileType(rawValue: $0) }
+                .first
+            /// Returns .txt for invalid type.
+            ?? .txt
+        }
+    }
 
     /// Returns the URL of the ``CEWorkspaceFile``
     let url: URL
+
+    /// Returns the resolved symlink url of this object.
+    lazy var resolvedURL: URL = {
+        url.isSymbolicLink ? url.resolvingSymlinksInPath() : url
+    }()
 
     /// Return the icon of the file as `Image`
     var icon: Image {
@@ -69,11 +88,11 @@ final class CEWorkspaceFile: Codable, Comparable, Hashable, Identifiable, Editor
     /// Returns a parent ``CEWorkspaceFile``.
     ///
     /// If the item already is the top-level ``CEWorkspaceFile`` this returns `nil`.
-    var parent: CEWorkspaceFile?
+    weak var parent: CEWorkspaceFile?
 
     private let fileDocumentSubject = PassthroughSubject<CodeFileDocument?, Never>()
 
-    var fileDocument: CodeFileDocument? {
+    weak var fileDocument: CodeFileDocument? {
         didSet {
             fileDocumentSubject.send(fileDocument)
         }
@@ -86,8 +105,8 @@ final class CEWorkspaceFile: Codable, Comparable, Hashable, Identifiable, Editor
 
     var fileIdentifier = UUID().uuidString
 
-    /// Returns the Git status of a file as ``GitType``
-    var gitStatus: GitType?
+    /// Returns the Git status of a file as ``GitStatus``
+    var gitStatus: GitStatus?
 
     /// Returns a boolean that is true if the file is staged for commit
     var staged: Bool?
@@ -97,7 +116,7 @@ final class CEWorkspaceFile: Codable, Comparable, Hashable, Identifiable, Editor
 
     /// Returns a boolean that is true if the resource represented by this object is a directory.
     lazy var isFolder: Bool = {
-        (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
+        resolvedURL.isFolder
     }()
 
     /// Returns a boolean that is true if the contents of the directory at this path are
@@ -105,7 +124,7 @@ final class CEWorkspaceFile: Codable, Comparable, Hashable, Identifiable, Editor
     /// Does not indicate if this is a folder, see ``isFolder`` to first check if this object is also a directory.
     var isEmptyFolder: Bool {
         (try? CEWorkspaceFile.fileManager.contentsOfDirectory(
-            at: url,
+            at: resolvedURL,
             includingPropertiesForKeys: nil,
             options: .skipsSubdirectoryDescendants
         ).isEmpty) ?? true
@@ -135,7 +154,7 @@ final class CEWorkspaceFile: Codable, Comparable, Hashable, Identifiable, Editor
 
     /// Return the file's UTType
     var contentType: UTType? {
-        try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
+        url.contentType
     }
 
     /// Returns a `Color` for a specific `fileType`
@@ -146,16 +165,33 @@ final class CEWorkspaceFile: Codable, Comparable, Hashable, Identifiable, Editor
     }
 
     init(
+        id: String,
         url: URL,
-        changeType: GitType? = nil,
+        changeType: GitStatus? = nil,
         staged: Bool? = false
     ) {
+        self.id = id
         self.url = url
         self.gitStatus = changeType
         self.staged = staged
     }
 
+    convenience init(
+        url: URL,
+        changeType: GitStatus? = nil,
+        staged: Bool? = false
+    ) {
+        self.init(
+            id: url.relativePath,
+            url: url,
+            changeType: changeType,
+            staged: staged
+        )
+    }
+
     enum CodingKeys: String, CodingKey {
+        case id
+        case name
         case url
         case changeType
         case staged
@@ -163,13 +199,16 @@ final class CEWorkspaceFile: Codable, Comparable, Hashable, Identifiable, Editor
 
     required init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(String.self, forKey: .id)
         url = try values.decode(URL.self, forKey: .url)
-        gitStatus = try values.decode(GitType.self, forKey: .changeType)
+        gitStatus = try values.decode(GitStatus.self, forKey: .changeType)
         staged = try values.decode(Bool.self, forKey: .staged)
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
         try container.encode(url, forKey: .url)
         try container.encode(gitStatus, forKey: .changeType)
         try container.encode(staged, forKey: .staged)
@@ -214,13 +253,15 @@ final class CEWorkspaceFile: Codable, Comparable, Hashable, Identifiable, Editor
     }
 
     func validateFileName(for newName: String) -> Bool {
-        guard newName != labelFileName() else { return true }
-
-        guard !newName.isEmpty && newName.isValidFilename &&
+        // Name must be: new, nonempty, valid characters, and not exist in the filesystem.
+        guard newName != labelFileName() &&
+                !newName.isEmpty &&
+                newName.isValidFilename &&
                 !FileManager.default.fileExists(
-                    atPath: self.url.deletingLastPathComponent().appendingPathComponent(newName).path
-                )
-        else { return false }
+                    atPath: self.url.deletingLastPathComponent().appending(path: newName).path
+                ) else {
+            return false
+        }
 
         return true
     }

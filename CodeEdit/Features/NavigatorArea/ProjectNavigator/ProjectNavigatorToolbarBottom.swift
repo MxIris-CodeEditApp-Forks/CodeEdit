@@ -17,7 +17,6 @@ struct ProjectNavigatorToolbarBottom: View {
     @EnvironmentObject var workspace: WorkspaceDocument
     @EnvironmentObject var editorManager: EditorManager
 
-    @State var filter: String = ""
     @State var recentsFilter: Bool = false
     @State var sourceControlFilter: Bool = false
 
@@ -26,7 +25,7 @@ struct ProjectNavigatorToolbarBottom: View {
             addNewFileButton
             PaneTextField(
                 "Filter",
-                text: $filter,
+                text: $workspace.navigatorFilter,
                 leadingAccessories: {
                     FilterDropDownIconButton(menu: {
                         Button {
@@ -34,10 +33,10 @@ struct ProjectNavigatorToolbarBottom: View {
                         } label: {
                             Text(workspace.sortFoldersOnTop ? "Alphabetically" : "Folders on top")
                         }
-                    }, isOn: !filter.isEmpty)
+                    }, isOn: !workspace.navigatorFilter.isEmpty)
                     .padding(.leading, 4)
                     .foregroundStyle(
-                        filter.isEmpty
+                        workspace.navigatorFilter.isEmpty
                         ? Color(nsColor: .secondaryLabelColor)
                         : Color(nsColor: .controlAccentColor)
                     )
@@ -58,12 +57,8 @@ struct ProjectNavigatorToolbarBottom: View {
                     .padding(.trailing, 2.5)
                 },
                 clearable: true,
-                hasValue: !filter.isEmpty || recentsFilter || sourceControlFilter
+                hasValue: !workspace.navigatorFilter.isEmpty || recentsFilter || sourceControlFilter
             )
-            //            .onChange(of: filter, perform: {
-            // TODO: Filter Workspace Files
-            //                workspace.filter = $0
-            //            })
         }
         .padding(.horizontal, 5)
         .frame(height: 28, alignment: .center)
@@ -102,28 +97,55 @@ struct ProjectNavigatorToolbarBottom: View {
             Button("Add File") {
                 let filePathURL = activeTabURL()
                 guard let rootFile = workspace.workspaceFileManager?.getFile(filePathURL.path) else { return }
-                workspace.workspaceFileManager?.addFile(fileName: "untitled", toFile: rootFile)
+                do {
+                    if let newFile = try workspace.workspaceFileManager?.addFile(
+                        fileName: "untitled",
+                        toFile: rootFile
+                    ) {
+                        workspace.listenerModel.highlightedFileItem = newFile
+                        workspace.editorManager?.openTab(item: newFile)
+                    }
+                } catch {
+                    let alert = NSAlert(error: error)
+                    alert.addButton(withTitle: "Dismiss")
+                    alert.runModal()
+                }
             }
+
             Button("Add Folder") {
                 let filePathURL = activeTabURL()
                 guard let rootFile = workspace.workspaceFileManager?.getFile(filePathURL.path) else { return }
-                workspace.workspaceFileManager?.addFolder(folderName: "untitled", toFile: rootFile)
+                do {
+                    if let newFolder = try workspace.workspaceFileManager?.addFolder(
+                        folderName: "untitled",
+                        toFile: rootFile
+                    ) {
+                        workspace.listenerModel.highlightedFileItem = newFolder
+                    }
+                } catch {
+                    let alert = NSAlert(error: error)
+                    alert.addButton(withTitle: "Dismiss")
+                    alert.runModal()
+                }
             }
         } label: {}
         .background {
             Image(systemName: "plus")
+                .accessibilityHidden(true)
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .frame(maxWidth: 18, alignment: .center)
         .opacity(activeState == .inactive ? 0.45 : 1)
+        .accessibilityLabel("Add Folder or File")
+        .accessibilityIdentifier("addButton")
     }
 
     /// We clear the text and remove the first responder which removes the cursor
     /// when the user clears the filter.
     private var clearFilterButton: some View {
         Button {
-            filter = ""
+            workspace.navigatorFilter = ""
             NSApp.keyWindow?.makeFirstResponder(nil)
         } label: {
             Image(systemName: "xmark.circle.fill")

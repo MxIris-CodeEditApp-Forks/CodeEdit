@@ -18,10 +18,12 @@ struct TextEditingSettingsView: View {
                 indentOption
                 defaultTabWidth
                 wrapLinesToEditorWidth
+                useSystemCursor
             }
             Section {
                 fontSelector
                 fontSizeSelector
+                fontWeightSelector
                 lineHeight
                 letterSpacing
             }
@@ -51,6 +53,10 @@ private extension TextEditingSettingsView {
         )
     }
 
+    @ViewBuilder private var fontWeightSelector: some View {
+        FontWeightPicker(selection: $textEditing.font.weight)
+    }
+
     @ViewBuilder private var autocompleteBraces: some View {
         Toggle(isOn: $textEditing.autocompleteBraces) {
             Text("Autocomplete braces")
@@ -64,6 +70,14 @@ private extension TextEditingSettingsView {
 
     @ViewBuilder private var wrapLinesToEditorWidth: some View {
         Toggle("Wrap lines to editor width", isOn: $textEditing.wrapLinesToEditorWidth)
+    }
+
+    @ViewBuilder private var useSystemCursor: some View {
+        if #available(macOS 14, *) {
+            Toggle("Use System Cursor", isOn: $textEditing.useSystemCursor)
+        } else {
+            EmptyView()
+        }
     }
 
     @ViewBuilder private var lineHeight: some View {
@@ -152,8 +166,8 @@ private extension TextEditingSettingsView {
                 )
                 .foregroundColor(
                     textEditing.bracketHighlight.useCustomColor
-                        ? Color(NSColor.labelColor)
-                        : Color(NSColor.secondaryLabelColor)
+                        ? Color(.labelColor)
+                        : Color(.secondaryLabelColor)
                 )
                 .disabled(!textEditing.bracketHighlight.useCustomColor)
             }

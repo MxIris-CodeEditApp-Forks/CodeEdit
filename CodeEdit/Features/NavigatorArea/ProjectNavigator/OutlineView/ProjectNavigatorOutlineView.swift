@@ -12,6 +12,7 @@ import Combine
 struct ProjectNavigatorOutlineView: NSViewControllerRepresentable {
 
     @EnvironmentObject var workspace: WorkspaceDocument
+    @EnvironmentObject var editorManager: EditorManager
 
     @StateObject var prefs: Settings = .shared
 
@@ -21,6 +22,7 @@ struct ProjectNavigatorOutlineView: NSViewControllerRepresentable {
         let controller = ProjectNavigatorViewController()
         controller.workspace = workspace
         controller.iconColor = prefs.preferences.general.fileIconStyle
+        controller.editor = editorManager.activeEditor
         workspace.workspaceFileManager?.addObserver(context.coordinator)
 
         context.coordinator.controller = controller
@@ -35,7 +37,7 @@ struct ProjectNavigatorOutlineView: NSViewControllerRepresentable {
         nsViewController.shownFileExtensions = prefs.preferences.general.shownFileExtensions
         nsViewController.hiddenFileExtensions = prefs.preferences.general.hiddenFileExtensions
         /// if the window becomes active from background, it will restore the selection to outline view.
-        nsViewController.updateSelection(itemID: workspace.editorManager.activeEditor.selectedTab?.file.id)
+        nsViewController.updateSelection(itemID: workspace.editorManager?.activeEditor.selectedTab?.file.id)
         return
     }
 
@@ -56,29 +58,38 @@ struct ProjectNavigatorOutlineView: NSViewControllerRepresentable {
                     self?.controller?.reveal(fileItem)
                 })
                 .store(in: &cancellables)
-            workspace.editorManager.tabBarTabIdSubject
+            workspace.editorManager?.tabBarTabIdSubject
                 .sink { [weak self] itemID in
                     self?.controller?.updateSelection(itemID: itemID)
                 }
                 .store(in: &cancellables)
+            workspace.$navigatorFilter
+                .throttle(for: 0.1, scheduler: RunLoop.main, latest: true)
+                .sink { [weak self] _ in self?.controller?.handleFilterChange() }
+                .store(in: &cancellables)
         }
 
         var cancellables: Set<AnyCancellable> = []
-        var workspace: WorkspaceDocument
-        var controller: ProjectNavigatorViewController?
+        weak var workspace: WorkspaceDocument?
+        weak var controller: ProjectNavigatorViewController?
 
         func fileManagerUpdated(updatedItems: Set<CEWorkspaceFile>) {
             guard let outlineView = controller?.outlineView else { return }
+            let selectedRows = outlineView.selectedRowIndexes.compactMap({ outlineView.item(atRow: $0) })
 
             for item in updatedItems {
                 outlineView.reloadItem(item, reloadChildren: true)
             }
 
-            controller?.updateSelection(itemID: workspace.editorManager.activeEditor.selectedTab?.file.id)
+            // Restore selected items where the files still exist.
+            let selectedIndexes = selectedRows.compactMap({ outlineView.row(forItem: $0) }).filter({ $0 >= 0 })
+            controller?.shouldSendSelectionUpdate = false
+            outlineView.selectRowIndexes(IndexSet(selectedIndexes), byExtendingSelection: false)
+            controller?.shouldSendSelectionUpdate = true
         }
 
         deinit {
-            workspace.workspaceFileManager?.removeObserver(self)
+            workspace?.workspaceFileManager?.removeObserver(self)
         }
     }
 }

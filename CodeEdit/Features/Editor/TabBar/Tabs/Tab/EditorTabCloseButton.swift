@@ -18,52 +18,29 @@ struct EditorTabCloseButton: View {
     @Environment(\.colorScheme)
     var colorScheme
 
-    @AppSettings(\.general.tabBarStyle)
-    var tabBarStyle
-
     @State private var isPressingClose: Bool = false
-    @State private var isHoveringClose: Bool = false
+    @Binding var isHoveringClose: Bool
 
     let buttonSize: CGFloat = 16
 
     var body: some View {
         HStack(alignment: .center) {
-            if tabBarStyle == .xcode {
-                Image(systemName: isDocumentEdited && !isHoveringTab ? "circlebadge.fill" : "xmark")
-                    .font(
-                        .system(
-                            size: isDocumentEdited && !isHoveringTab ? 9.5 : 11.5,
-                            weight: .regular,
-                            design: .rounded
-                        )
+            Image(systemName: isDocumentEdited && !isHoveringTab ? "circlebadge.fill" : "xmark")
+                .font(
+                    .system(
+                        size: isDocumentEdited && !isHoveringTab ? 9.5 : 11.5,
+                        weight: .regular,
+                        design: .rounded
                     )
-                    .foregroundColor(
-                        isActive
-                        ? colorScheme == .dark ? .primary : Color(.controlAccentColor)
-                        : .secondary
-                    )
-            } else {
-                Image(systemName: isDocumentEdited && !isHoveringTab ? "circlebadge.fill" : "xmark")
-                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
-            }
+                )
+                .foregroundColor(
+                    isActive
+                    ? colorScheme == .dark ? .primary : Color(.controlAccentColor)
+                    : .secondary
+                )
         }
         .frame(width: buttonSize, height: buttonSize)
-        .background(
-            colorScheme == .dark
-            ? Color(nsColor: .white)
-                .opacity(isPressingClose ? 0.10 : isHoveringClose ? 0.05 : 0)
-            : (
-                tabBarStyle == .xcode
-                ? Color(nsColor: isActive ? .controlAccentColor : .black)
-                    .opacity(
-                        isPressingClose
-                        ? 0.25
-                        : (isHoveringClose ? (isActive ? 0.10 : 0.06) : 0)
-                    )
-                : Color(nsColor: .black)
-                    .opacity(isPressingClose ? 0.29 : (isHoveringClose ? 0.11 : 0))
-            )
-        )
+        .background(backgroundColor)
         .foregroundColor(isPressingClose ? .primary : .secondary)
         .clipShape(RoundedRectangle(cornerRadius: 2))
         .contentShape(Rectangle())
@@ -89,24 +66,56 @@ struct EditorTabCloseButton: View {
         .onHover { hover in
             isHoveringClose = hover
         }
+        .accessibilityAddTraits(.isButton)
         .accessibilityLabel(Text("Close"))
         // Only show when the mouse is hovering and there is no tab dragging.
         .opacity((isHoveringTab || isDocumentEdited == true) && !isDragging ? 1 : 0)
         .animation(.easeInOut(duration: 0.08), value: isHoveringTab)
         .padding(.leading, 4)
     }
+
+    @ViewBuilder var backgroundColor: some View {
+        if colorScheme == .dark {
+            let opacity: Double = if isPressingClose {
+                0.10
+            } else if isHoveringClose {
+                0.05
+            } else {
+                0
+            }
+
+            Color(nsColor: .white)
+                .opacity(opacity)
+        } else {
+            let opacity: Double = if isPressingClose {
+                0.25
+            } else if isHoveringClose {
+                if isActive {
+                    0.10
+                } else {
+                    0.06
+                }
+            } else {
+                0.0
+            }
+
+            Color(nsColor: isActive ? .controlAccentColor : .systemGray)
+                .opacity(opacity)
+        }
+    }
 }
 
-struct EditorTabCloseButton_Previews: PreviewProvider {
-    @State static var closeButtonGestureActive = true
+@available(macOS 14.0, *)
+#Preview {
+    @Previewable @State var closeButtonGestureActive: Bool = false
+    @Previewable @State var isHoveringClose: Bool = false
 
-    static var previews: some View {
-        EditorTabCloseButton(
-            isActive: false,
-            isHoveringTab: false,
-            isDragging: false,
-            closeAction: { print("Close tab") },
-            closeButtonGestureActive: $closeButtonGestureActive
-        )
-    }
+    return EditorTabCloseButton(
+        isActive: false,
+        isHoveringTab: false,
+        isDragging: false,
+        closeAction: { print("Close tab") },
+        closeButtonGestureActive: $closeButtonGestureActive,
+        isHoveringClose: $isHoveringClose
+    )
 }

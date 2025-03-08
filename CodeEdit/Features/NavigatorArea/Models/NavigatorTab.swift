@@ -9,7 +9,7 @@ import SwiftUI
 import CodeEditKit
 import ExtensionFoundation
 
-enum NavigatorTab: AreaTab {
+enum NavigatorTab: WorkspacePanelTab {
     case project
     case sourceControl
     case search
@@ -40,7 +40,7 @@ enum NavigatorTab: AreaTab {
         case .project:
             return "Project"
         case .sourceControl:
-            return "Version Control"
+            return "Source Control"
         case .search:
             return "Search"
         case .uiExtension(_, let data):

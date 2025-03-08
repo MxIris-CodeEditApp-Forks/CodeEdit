@@ -740,6 +740,51 @@
       "contributions": [
         "bug"
       ]
+    },
+    {
+      "login": "LeonardoLarranaga",
+      "name": "Leonardo",
+      "avatar_url": "https://avatars.githubusercontent.com/u/83844690?v=4",
+      "profile": "https://github.com/LeonardoLarranaga",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "scaredcr6w",
+      "name": "Levente Anda",
+      "avatar_url": "https://avatars.githubusercontent.com/u/85457088?v=4",
+      "profile": "https://github.com/scaredcr6w",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "NobelLiu",
+      "name": "Nobel",
+      "avatar_url": "https://avatars.githubusercontent.com/u/10796646?v=4",
+      "profile": "https://nobelliu.github.com",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "SavelyUkuren",
+      "name": "Savely",
+      "avatar_url": "https://avatars.githubusercontent.com/u/125015568?v=4",
+      "profile": "https://github.com/SavelyUkuren",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "Kihron",
+      "name": "Kihron",
+      "avatar_url": "https://avatars.githubusercontent.com/u/30128800?v=4",
+      "profile": "https://github.com/Kihron",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,

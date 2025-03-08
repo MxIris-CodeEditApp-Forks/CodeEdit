@@ -7,6 +7,7 @@
 
 import AppKit
 import SwiftUI
+import Combine
 
 extension CodeEditWindowController {
     internal func setupToolbar() {
@@ -16,23 +17,21 @@ extension CodeEditWindowController {
         toolbar.showsBaselineSeparator = false
         self.window?.titleVisibility = toolbarCollapsed ? .visible : .hidden
         self.window?.toolbarStyle = .unifiedCompact
-        if Settings[\.general].tabBarStyle == .native {
-            // Set titlebar background as transparent by default in order to
-            // style the toolbar background in native tab bar style.
-            self.window?.titlebarSeparatorStyle = .none
-        } else {
-            // In Xcode tab bar style, we use default toolbar background with
-            // line separator.
-            self.window?.titlebarSeparatorStyle = .automatic
-        }
+        self.window?.titlebarSeparatorStyle = .automatic
         self.window?.toolbar = toolbar
     }
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         [
             .toggleFirstSidebarItem,
+            .flexibleSpace,
+            .stopTaskSidebarItem,
+            .startTaskSidebarItem,
             .sidebarTrackingSeparator,
             .branchPicker,
+            .flexibleSpace,
+            .activityViewer,
+            .notificationItem,
             .flexibleSpace,
             .itemListTrackingSeparator,
             .flexibleSpace,
@@ -47,7 +46,11 @@ extension CodeEditWindowController {
             .flexibleSpace,
             .itemListTrackingSeparator,
             .toggleLastSidebarItem,
-            .branchPicker
+            .branchPicker,
+            .activityViewer,
+            .notificationItem,
+            .startTaskSidebarItem,
+            .stopTaskSidebarItem
         ]
     }
 
@@ -67,6 +70,7 @@ extension CodeEditWindowController {
         }
     }
 
+    // swiftlint:disable:next function_body_length cyclomatic_complexity
     func toolbar(
         _ toolbar: NSToolbar,
         itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier,
@@ -109,6 +113,31 @@ extension CodeEditWindowController {
             )?.withSymbolConfiguration(.init(scale: .large))
 
             return toolbarItem
+        case .stopTaskSidebarItem:
+            let toolbarItem = NSToolbarItem(itemIdentifier: NSToolbarItem.Identifier.stopTaskSidebarItem)
+
+            guard let taskManager = workspace?.taskManager
+            else { return nil }
+
+            let view = NSHostingView(
+                rootView: StopTaskToolbarButton(taskManager: taskManager)
+            )
+            toolbarItem.view = view
+
+            return toolbarItem
+        case .startTaskSidebarItem:
+            let toolbarItem = NSToolbarItem(itemIdentifier: NSToolbarItem.Identifier.startTaskSidebarItem)
+
+            guard let taskManager = workspace?.taskManager else { return nil }
+            guard let workspace = workspace else { return nil }
+
+            let view = NSHostingView(
+                rootView: StartTaskToolbarButton(taskManager: taskManager)
+                    .environmentObject(workspace)
+            )
+            toolbarItem.view = view
+
+            return toolbarItem
         case .branchPicker:
             let toolbarItem = NSToolbarItem(itemIdentifier: .branchPicker)
             let view = NSHostingView(
@@ -119,7 +148,44 @@ extension CodeEditWindowController {
             toolbarItem.view = view
 
             return toolbarItem
+        case .activityViewer:
+            let toolbarItem = NSToolbarItem(itemIdentifier: NSToolbarItem.Identifier.activityViewer)
+            toolbarItem.visibilityPriority = .user
+            guard let workspaceSettingsManager = workspace?.workspaceSettingsManager,
+                  let taskNotificationHandler = workspace?.taskNotificationHandler,
+                  let taskManager = workspace?.taskManager
+            else { return nil }
 
+            let view = NSHostingView(
+                rootView: ActivityViewer(
+                    workspaceFileManager: workspace?.workspaceFileManager,
+                    workspaceSettingsManager: workspaceSettingsManager,
+                    taskNotificationHandler: taskNotificationHandler,
+                    taskManager: taskManager
+                )
+            )
+
+            let weakWidth = view.widthAnchor.constraint(equalToConstant: 650)
+            weakWidth.priority = .defaultLow
+            let strongWidth = view.widthAnchor.constraint(greaterThanOrEqualToConstant: 200)
+            strongWidth.priority = .defaultHigh
+
+            NSLayoutConstraint.activate([
+                weakWidth,
+                strongWidth
+            ])
+
+            toolbarItem.view = view
+            return toolbarItem
+        case .notificationItem:
+            let toolbarItem = NSToolbarItem(itemIdentifier: .notificationItem)
+            guard let workspace = workspace else { return nil }
+            let view = NSHostingView(
+                rootView: NotificationToolbarItem()
+                    .environmentObject(workspace)
+            )
+            toolbarItem.view = view
+            return toolbarItem
         default:
             return NSToolbarItem(itemIdentifier: itemIdentifier)
         }

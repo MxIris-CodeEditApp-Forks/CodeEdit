@@ -37,8 +37,7 @@ struct GeneralSettingsView: View {
             Section {
                 appearance
                 fileIconStyle
-                tabBarStyle
-                showEditorPathBar
+                showEditorJumpBar
                 dimEditorsWithoutFocus
                 navigatorTabBarPosition
                 inspectorTabBarPosition
@@ -106,8 +105,8 @@ private extension GeneralSettingsView {
         Toggle("Show Live Issues", isOn: $settings.showLiveIssues)
     }
 
-    var showEditorPathBar: some View {
-        Toggle("Show Path Bar", isOn: $settings.showEditorPathBar)
+    var showEditorJumpBar: some View {
+        Toggle("Show Jump Bar", isOn: $settings.showEditorJumpBar)
     }
 
     var dimEditorsWithoutFocus: some View {
@@ -146,16 +145,6 @@ private extension GeneralSettingsView {
                 .tag(SettingsData.FileIconStyle.color)
             Text("Monochrome")
                 .tag(SettingsData.FileIconStyle.monochrome)
-        }
-        .pickerStyle(.radioGroup)
-    }
-
-    var tabBarStyle: some View {
-        Picker("Tab Bar Style", selection: $settings.tabBarStyle) {
-            Text("Xcode")
-                .tag(SettingsData.TabBarStyle.xcode)
-            Text("Native")
-                .tag(SettingsData.TabBarStyle.native)
         }
         .pickerStyle(.radioGroup)
     }

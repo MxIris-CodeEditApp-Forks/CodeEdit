@@ -12,9 +12,9 @@ final class CodeEditDocumentController: NSDocumentController {
     @Environment(\.openWindow)
     private var openWindow
 
-    lazy var fileManager: FileManager = {
-        FileManager.default
-    }()
+    @Service var lspService: LSPService
+
+    private let fileManager = FileManager.default
 
     override func newDocument(_ sender: Any?) {
         guard let newDocumentUrl = self.newDocumentUrl else { return }
@@ -41,10 +41,6 @@ final class CodeEditDocumentController: NSDocumentController {
         return panel.url
     }
 
-    override func noteNewRecentDocument(_ document: NSDocument) {
-        // The super method is run manually when opening new documents.
-    }
-
     override func openDocument(_ sender: Any?) {
         self.openDocument(onCompletion: { document, documentWasAlreadyOpen in
             // TODO: handle errors
@@ -63,23 +59,26 @@ final class CodeEditDocumentController: NSDocumentController {
         display displayDocument: Bool,
         completionHandler: @escaping (NSDocument?, Bool, Error?) -> Void
     ) {
-        super.noteNewRecentDocumentURL(url)
         super.openDocument(withContentsOf: url, display: displayDocument) { document, documentWasAlreadyOpen, error in
 
             if let document {
                 self.addDocument(document)
-                self.updateRecent(url)
             } else {
                 let errorMessage = error?.localizedDescription ?? "unknown error"
                 print("Unable to open document '\(url)': \(errorMessage)")
             }
 
+            RecentProjectsStore.documentOpened(at: url)
             completionHandler(document, documentWasAlreadyOpen, error)
         }
     }
 
     override func removeDocument(_ document: NSDocument) {
         super.removeDocument(document)
+
+        if let workspace = document as? WorkspaceDocument, let path = workspace.fileURL?.absoluteURL.path() {
+            lspService.closeWorkspace(path)
+        }
 
         if CodeEditDocumentController.shared.documents.isEmpty {
             switch Settings[\.general].reopenWindowAfterClose {
@@ -92,11 +91,6 @@ final class CodeEditDocumentController: NSDocumentController {
             case .doNothing: break
             }
         }
-    }
-
-    override func clearRecentDocuments(_ sender: Any?) {
-        super.clearRecentDocuments(sender)
-        UserDefaults.standard.set([Any](), forKey: "recentProjectPaths")
     }
 }
 
@@ -127,7 +121,6 @@ extension NSDocumentController {
                         alert.runModal()
                         return
                     }
-                    self.updateRecent(url)
                     onCompletion(document, documentWasAlreadyOpen)
                     print("Document:", document)
                     print("Was already open?", documentWasAlreadyOpen)
@@ -136,17 +129,5 @@ extension NSDocumentController {
                 onCancel()
             }
         }
-    }
-
-    final func updateRecent(_ url: URL) {
-        var recentProjectPaths: [String] = UserDefaults.standard.array(
-            forKey: "recentProjectPaths"
-        ) as? [String] ?? []
-        if let containedIndex = recentProjectPaths.firstIndex(of: url.path) {
-            recentProjectPaths.move(fromOffsets: IndexSet(integer: containedIndex), toOffset: 0)
-        } else {
-            recentProjectPaths.insert(url.path, at: 0)
-        }
-        UserDefaults.standard.set(recentProjectPaths, forKey: "recentProjectPaths")
     }
 }

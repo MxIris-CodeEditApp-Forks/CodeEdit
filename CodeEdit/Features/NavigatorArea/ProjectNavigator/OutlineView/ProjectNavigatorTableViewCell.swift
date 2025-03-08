@@ -14,7 +14,7 @@ protocol OutlineTableViewCellDelegate: AnyObject {
 
 /// A `NSTableCellView` showing an ``icon`` and a ``label``
 final class ProjectNavigatorTableViewCell: FileSystemTableViewCell {
-    private var delegate: OutlineTableViewCellDelegate?
+    private weak var delegate: OutlineTableViewCellDelegate?
 
     /// Initializes the `OutlineTableViewCell` with an `icon` and `label`
     /// Both the icon and label will be colored, and sized based on the user's preferences.
@@ -22,14 +22,17 @@ final class ProjectNavigatorTableViewCell: FileSystemTableViewCell {
     ///   - frameRect: The frame of the cell.
     ///   - item: The file item the cell represents.
     ///   - isEditable: Set to true if the user should be able to edit the file name.
+    ///   - navigatorFilter: An optional string use to filter the navigator area.
+    ///                      (Used for bolding and changing primary/secondary color).
     init(
         frame frameRect: NSRect,
         item: CEWorkspaceFile?,
         isEditable: Bool = true,
-        delegate: OutlineTableViewCellDelegate? = nil
+        delegate: OutlineTableViewCellDelegate? = nil,
+        navigatorFilter: String? = nil
     ) {
-        super.init(frame: frameRect, item: item, isEditable: isEditable)
-
+        super.init(frame: frameRect, item: item, isEditable: isEditable, navigatorFilter: navigatorFilter)
+        self.textField?.setAccessibilityIdentifier("ProjectNavigatorTableViewCell-\(item?.name ?? "")")
         self.delegate = delegate
     }
 
@@ -51,14 +54,15 @@ final class ProjectNavigatorTableViewCell: FileSystemTableViewCell {
     }
 
     override func controlTextDidEndEditing(_ obj: Notification) {
-        label.backgroundColor = fileItem.validateFileName(for: label?.stringValue ?? "") ? .none : errorRed
-        if fileItem.validateFileName(for: label?.stringValue ?? "") {
+        guard let fileItem else { return }
+        textField?.backgroundColor = fileItem.validateFileName(for: textField?.stringValue ?? "") ? .none : errorRed
+        if fileItem.validateFileName(for: textField?.stringValue ?? "") {
             let destinationURL = fileItem.url
                 .deletingLastPathComponent()
-                .appendingPathComponent(label?.stringValue ?? "")
+                .appending(path: textField?.stringValue ?? "")
             delegate?.moveFile(file: fileItem, to: destinationURL)
         } else {
-            label?.stringValue = fileItem.labelFileName()
+            textField?.stringValue = fileItem.labelFileName()
         }
     }
 }

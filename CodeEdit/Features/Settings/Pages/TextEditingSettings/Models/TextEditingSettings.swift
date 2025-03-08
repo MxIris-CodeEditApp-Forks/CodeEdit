@@ -20,6 +20,7 @@ extension SettingsData {
                 "Wrap lines to editor width",
                 "Font",
                 "Font Size",
+                "Font Weight",
                 "Line Height",
                 "Letter Spacing",
                 "Autocomplete braces",
@@ -48,8 +49,8 @@ extension SettingsData {
         /// A flag indicating whether to wrap lines to editor width
         var wrapLinesToEditorWidth: Bool = true
 
-        /// A multiplier for setting the line height. Defaults to `1.45`
-        var lineHeightMultiple: Double = 1.45
+        /// A multiplier for setting the line height. Defaults to `1.2`
+        var lineHeightMultiple: Double = 1.2
 
         /// A multiplier for setting the letter spacing, `1` being no spacing and
         /// `2` is one character of spacing between letters, defaults to `1`.
@@ -57,6 +58,9 @@ extension SettingsData {
 
         /// The behavior of bracket pair highlights.
         var bracketHighlight: BracketPairHighlight = BracketPairHighlight()
+
+        /// Use the system cursor for the source editor.
+        var useSystemCursor: Bool = true
 
         /// Default initializer
         init() {
@@ -87,7 +91,7 @@ extension SettingsData {
             self.lineHeightMultiple = try container.decodeIfPresent(
                 Double.self,
                 forKey: .lineHeightMultiple
-            ) ?? 1.45
+            ) ?? 1.2
             self.letterSpacing = try container.decodeIfPresent(
                 Double.self,
                 forKey: .letterSpacing
@@ -96,6 +100,11 @@ extension SettingsData {
                 BracketPairHighlight.self,
                 forKey: .bracketHighlight
             ) ?? BracketPairHighlight()
+            if #available(macOS 14, *) {
+                self.useSystemCursor = try container.decodeIfPresent(Bool.self, forKey: .useSystemCursor) ?? true
+            } else {
+                self.useSystemCursor = false
+            }
 
             self.populateCommands()
         }
@@ -108,7 +117,7 @@ extension SettingsData {
                 name: "Toggle Type-Over Completion",
                 title: "Toggle Type-Over Completion",
                 id: "prefs.text_editing.type_over_completion",
-                command: CommandClosureWrapper {
+                command: {
                     Settings.shared.preferences.textEditing.enableTypeOverCompletion.toggle()
                 }
             )
@@ -117,7 +126,7 @@ extension SettingsData {
                 name: "Toggle Autocomplete Braces",
                 title: "Toggle Autocomplete Braces",
                 id: "prefs.text_editing.autocomplete_braces",
-                command: CommandClosureWrapper {
+                command: {
                     Settings.shared.preferences.textEditing.autocompleteBraces.toggle()
                 }
             )
@@ -126,7 +135,7 @@ extension SettingsData {
                 name: "Toggle Word Wrap",
                 title: "Toggle Word Wrap",
                 id: "prefs.text_editing.wrap_lines_to_editor_width",
-                command: CommandClosureWrapper {
+                command: {
                     Settings[\.textEditing].wrapLinesToEditorWidth.toggle()
                 }
             )
@@ -149,7 +158,7 @@ extension SettingsData {
             var highlightType: HighlightType = .flash
             var useCustomColor: Bool = false
             /// The color to use for the highlight.
-            var color: Theme.Attributes = Theme.Attributes(color: "FFFFFF")
+            var color: Theme.Attributes = Theme.Attributes(color: "FFFFFF", bold: false, italic: false)
 
             enum HighlightType: String, Codable {
                 case disabled
@@ -167,6 +176,9 @@ extension SettingsData {
         /// The name of the custom font
         var name: String = "SF Mono"
 
+        /// The weight of the custom font
+        var weight: NSFont.Weight = .medium
+
         /// Default initializer
         init() {}
 
@@ -175,6 +187,7 @@ extension SettingsData {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             self.size = try container.decodeIfPresent(Double.self, forKey: .size) ?? size
             self.name = try container.decodeIfPresent(String.self, forKey: .name) ?? name
+            self.weight = try container.decodeIfPresent(NSFont.Weight.self, forKey: .weight) ?? weight
         }
 
         /// Returns an NSFont representation of the current configuration.
@@ -182,7 +195,8 @@ extension SettingsData {
         /// Returns the custom font, if enabled and able to be instantiated.
         /// Otherwise returns a default system font monospaced.
         var current: NSFont {
-            return NSFont(name: name, size: size) ?? NSFont.monospacedSystemFont(ofSize: size, weight: .medium)
+            let customFont = NSFont(name: name, size: size)?.withWeight(weight: weight)
+            return customFont ?? NSFont.monospacedSystemFont(ofSize: size, weight: .medium)
         }
     }
 }

@@ -1262,7 +1262,7 @@
 	<key>CFBundlePackageType</key>
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.0</string>
+	<string>0.3.3</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -1275,12 +1275,14 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>38</string>
+	<string>44</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.developer-tools</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>${CE_COPYRIGHT}</string>
 	<key>SUEnableInstallerLauncherService</key>
+	<true/>
+	<key>SUEnableJavaScript</key>
 	<true/>
 	<key>SUFeedURL</key>
 	<string>https://github.com/CodeEditApp/CodeEdit/releases/latest/download/appcast.xml</string>

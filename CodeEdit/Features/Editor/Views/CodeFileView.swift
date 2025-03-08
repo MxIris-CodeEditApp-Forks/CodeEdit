@@ -40,13 +40,13 @@ struct CodeFileView: View {
     var letterSpacing
     @AppSettings(\.textEditing.bracketHighlight)
     var bracketHighlight
+    @AppSettings(\.textEditing.useSystemCursor)
+    var useSystemCursor
 
     @Environment(\.colorScheme)
     private var colorScheme
 
-    @EnvironmentObject private var editorManager: EditorManager
-
-    @StateObject private var themeModel: ThemeModel = .shared
+    @ObservedObject private var themeModel: ThemeModel = .shared
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -56,7 +56,9 @@ struct CodeFileView: View {
 
     init(codeFile: CodeFileDocument, textViewCoordinators: [TextViewCoordinator] = [], isEditable: Bool = true) {
         self._codeFile = .init(wrappedValue: codeFile)
-        self.textViewCoordinators = textViewCoordinators + [codeFile.contentCoordinator]
+        self.textViewCoordinators = textViewCoordinators
+            + [codeFile.contentCoordinator]
+            + [codeFile.lspCoordinator].compactMap({ $0 })
         self.isEditable = isEditable
 
         if let openOptions = codeFile.openOptions {
@@ -67,17 +69,31 @@ struct CodeFileView: View {
         codeFile
             .contentCoordinator
             .textUpdatePublisher
-            .debounce(for: 0.25, scheduler: DispatchQueue.main)
             .sink { _ in
                 codeFile.updateChangeCount(.changeDone)
-                codeFile.autosave(withImplicitCancellability: false) { _ in }
+            }
+            .store(in: &cancellables)
+
+        codeFile
+            .contentCoordinator
+            .textUpdatePublisher
+            .debounce(for: 1.0, scheduler: DispatchQueue.main)
+            .sink { _ in
+                // updateChangeCount is automatically managed by autosave(), so no manual call is necessary
+                codeFile.autosave(withImplicitCancellability: false) { error in
+                    if let error {
+                        CodeFileDocument.logger.error("Failed to autosave document, error: \(error)")
+                    }
+                }
             }
             .store(in: &cancellables)
 
         codeFile.undoManager = self.undoManager.manager
     }
 
-    @State private var selectedTheme = ThemeModel.shared.selectedTheme ?? ThemeModel.shared.themes.first!
+    private var currentTheme: Theme {
+        themeModel.selectedTheme ?? themeModel.themes.first!
+    }
 
     @State private var font: NSFont = Settings[\.textEditing].font.current
 
@@ -101,13 +117,11 @@ struct CodeFileView: View {
     @Environment(\.edgeInsets)
     private var edgeInsets
 
-    @EnvironmentObject private var editor: Editor
-
     var body: some View {
         CodeEditSourceEditor(
             codeFile.content ?? NSTextStorage(),
-            language: getLanguage(),
-            theme: selectedTheme.editor.editorTheme,
+            language: codeFile.getLanguage(),
+            theme: currentTheme.editor.editorTheme,
             font: font,
             tabWidth: codeFile.defaultTabWidth ?? defaultTabWidth,
             indentOption: (codeFile.indentOption ?? indentOption).textViewOption(),
@@ -119,10 +133,10 @@ struct CodeFileView: View {
             isEditable: isEditable,
             letterSpacing: letterSpacing,
             bracketPairHighlight: bracketPairHighlight,
+            useSystemCursor: useSystemCursor,
             undoManager: undoManager,
             coordinators: textViewCoordinators
         )
-
         .id(codeFile.fileURL)
         .background {
             if colorScheme == .dark {
@@ -131,17 +145,9 @@ struct CodeFileView: View {
                 EffectView(.contentBackground)
             }
         }
-        .colorScheme(
-            selectedTheme.appearance == .dark
-            ? .dark
-            : .light
-        )
+        .colorScheme(currentTheme.appearance == .dark ? .dark : .light)
         // minHeight zero fixes a bug where the app would freeze if the contents of the file are empty.
         .frame(minHeight: .zero, maxHeight: .infinity)
-        .onChange(of: themeModel.selectedTheme) { newValue in
-            guard let theme = newValue else { return }
-            self.selectedTheme = theme
-        }
         .onChange(of: settingsFont) { newFontSetting in
             font = newFontSetting.current
         }
@@ -150,22 +156,13 @@ struct CodeFileView: View {
         }
     }
 
-    private func getLanguage() -> CodeLanguage {
-        guard let url = codeFile.fileURL else {
-            return .default
-        }
-        return codeFile.language ?? CodeLanguage.detectLanguageFrom(
-            url: url,
-            prefixBuffer: codeFile.content?.string.getFirstLines(5),
-            suffixBuffer: codeFile.content?.string.getLastLines(5)
-        )
-    }
-
     private func getBracketPairHighlight() -> BracketPairHighlight? {
-        let theme = ThemeModel.shared.selectedTheme ?? ThemeModel.shared.themes.first!
-        let color = Settings[\.textEditing].bracketHighlight.useCustomColor
-        ? Settings[\.textEditing].bracketHighlight.color.nsColor
-        : theme.editor.text.nsColor.withAlphaComponent(0.8)
+        let color = if Settings[\.textEditing].bracketHighlight.useCustomColor {
+            Settings[\.textEditing].bracketHighlight.color.nsColor
+        } else {
+            currentTheme.editor.text.nsColor.withAlphaComponent(0.8)
+        }
+
         switch Settings[\.textEditing].bracketHighlight.highlightType {
         case .disabled:
             return nil

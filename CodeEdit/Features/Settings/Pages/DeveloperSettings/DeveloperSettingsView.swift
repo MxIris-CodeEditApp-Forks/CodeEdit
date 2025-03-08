@@ -6,17 +6,26 @@
 //
 
 import SwiftUI
+import LanguageServerProtocol
 
 /// A view that implements the Developer settings section
 struct DeveloperSettingsView: View {
     @AppSettings(\.developerSettings.lspBinaries)
     var lspBinaries
 
+    @AppSettings(\.developerSettings.showInternalDevelopmentInspector)
+    var showInternalDevelopmentInspector
+
     var body: some View {
         SettingsForm {
             Section {
+                Toggle("Show Internal Development Inspector", isOn: $showInternalDevelopmentInspector)
+            }
+
+            Section {
                 KeyValueTable(
                     items: $lspBinaries,
+                    validKeys: LanguageIdentifier.allCases.map { $0.rawValue },
                     keyColumnName: "Language",
                     valueColumnName: "Language Server Path",
                     newItemInstruction: "Add a language server"

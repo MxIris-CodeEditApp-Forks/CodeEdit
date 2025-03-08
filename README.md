@@ -5,8 +5,8 @@
 
 
 <p align="center">
-  <a aria-label="Follow CodeEdit on Twitter" href="https://twitter.com/CodeEditApp" target="_blank">
-    <img alt="" src="https://img.shields.io/badge/Follow%20@CodeEditApp-black.svg?style=for-the-badge&logo=Twitter">
+  <a aria-label="Follow CodeEdit on X" href="https://x.com/CodeEditApp" target="_blank">
+    <img alt="" src="https://img.shields.io/badge/Follow%20@CodeEditApp-black.svg?style=for-the-badge&logo=X">
   </a>
   <a aria-label="Join the community on Discord" href="https://discord.gg/vChUXVf9Em" target="_blank">
     <img alt="" src="https://img.shields.io/badge/Join%20the%20community-black.svg?style=for-the-badge&logo=Discord">
@@ -187,6 +187,11 @@ For issues we want to focus on that are most relevant at any given time, please 
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="http://danielz.xyz"><img src="https://avatars.githubusercontent.com/u/65467530?v=4?s=100" width="100px;" alt="Daniel Zhu"/><br /><sub><b>Daniel Zhu</b></sub></a><br /><a href="https://github.com/CodeEditApp/CodeEdit/issues?q=author%3Adanielzsh" title="Bug reports">🐛</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/simonwhitaker"><img src="https://avatars.githubusercontent.com/u/116432?v=4?s=100" width="100px;" alt="Simon Whitaker"/><br /><sub><b>Simon Whitaker</b></sub></a><br /><a href="https://github.com/CodeEditApp/CodeEdit/issues?q=author%3Asimonwhitaker" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/LeonardoLarranaga"><img src="https://avatars.githubusercontent.com/u/83844690?v=4?s=100" width="100px;" alt="Leonardo"/><br /><sub><b>Leonardo</b></sub></a><br /><a href="https://github.com/CodeEditApp/CodeEdit/commits?author=LeonardoLarranaga" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/scaredcr6w"><img src="https://avatars.githubusercontent.com/u/85457088?v=4?s=100" width="100px;" alt="Levente Anda"/><br /><sub><b>Levente Anda</b></sub></a><br /><a href="https://github.com/CodeEditApp/CodeEdit/commits?author=scaredcr6w" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://nobelliu.github.com"><img src="https://avatars.githubusercontent.com/u/10796646?v=4?s=100" width="100px;" alt="Nobel"/><br /><sub><b>Nobel</b></sub></a><br /><a href="https://github.com/CodeEditApp/CodeEdit/commits?author=NobelLiu" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/SavelyUkuren"><img src="https://avatars.githubusercontent.com/u/125015568?v=4?s=100" width="100px;" alt="Savely"/><br /><sub><b>Savely</b></sub></a><br /><a href="https://github.com/CodeEditApp/CodeEdit/commits?author=SavelyUkuren" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Kihron"><img src="https://avatars.githubusercontent.com/u/30128800?v=4?s=100" width="100px;" alt="Kihron"/><br /><sub><b>Kihron</b></sub></a><br /><a href="https://github.com/CodeEditApp/CodeEdit/issues?q=author%3AKihron" title="Bug reports">🐛</a></td>
     </tr>
   </tbody>
 </table>

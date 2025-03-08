@@ -30,13 +30,6 @@ struct AccountsSettingsDetailsView: View {
     /// Default instance of the `FileManager`
     private let filemanager = FileManager.default
 
-    /// The URL of the users ssh folder. Points to `~/.ssh`
-    internal var sshURL: URL {
-        filemanager
-            .homeDirectoryForCurrentUser
-            .appendingPathComponent(".ssh", isDirectory: true)
-    }
-
     func isPrivateSSHKey(_ contents: String) -> Bool {
         if contents.starts(with: "-----BEGIN OPENSSH PRIVATE KEY-----\n") &&
            contents.hasSuffix("\n-----END OPENSSH PRIVATE KEY-----\n") {
@@ -87,15 +80,15 @@ struct AccountsSettingsDetailsView: View {
                         Text("None")
                             .tag("")
                         Divider()
-                        if let sshPath = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(
-                            ".ssh",
-                            isDirectory: true
+                        if let sshPath = FileManager.default.homeDirectoryForCurrentUser.appending(
+                            path: ".ssh",
+                            directoryHint: .isDirectory
                         ) as URL? {
                             if let files = try? FileManager.default.contentsOfDirectory(
                                 atPath: sshPath.path
                             ) {
                                 ForEach(files, id: \.self) { filename in
-                                    let fileURL = sshPath.appendingPathComponent(filename)
+                                    let fileURL = sshPath.appending(path: filename)
                                     if let contents = try? String(contentsOf: fileURL) {
                                         if isPublicSSHKey(contents) {
                                             Text(filename.replacingOccurrences(of: ".pub", with: ""))

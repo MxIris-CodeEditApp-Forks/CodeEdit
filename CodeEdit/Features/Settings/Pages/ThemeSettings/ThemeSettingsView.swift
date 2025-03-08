@@ -18,90 +18,135 @@ struct ThemeSettingsView: View {
     var useDarkTerminalAppearance
 
     @State private var listView: Bool = false
-    @State private var selectedAppearance: ThemeSettingsAppearances = .dark
-
-    enum ThemeSettingsAppearances: String, CaseIterable {
-        case light = "Light Appearance"
-        case dark = "Dark Appearance"
-    }
-
-    func getThemeActive (_ theme: Theme) -> Bool {
-        if settings.matchAppearance {
-            return selectedAppearance == .dark
-            ? themeModel.selectedDarkTheme == theme
-            : selectedAppearance == .light
-                ? themeModel.selectedLightTheme == theme
-                : themeModel.selectedTheme == theme
-        }
-        return themeModel.selectedTheme == theme
-    }
-
-    func activateTheme (_ theme: Theme) {
-        if settings.matchAppearance {
-            if selectedAppearance == .dark {
-                themeModel.selectedDarkTheme = theme
-            } else if selectedAppearance == .light {
-                themeModel.selectedLightTheme = theme
-            }
-            if (selectedAppearance == .dark && colorScheme == .dark)
-                || (selectedAppearance == .light && colorScheme == .light) {
-                themeModel.selectedTheme = theme
-            }
-        } else {
-            themeModel.selectedTheme = theme
-            if colorScheme == .light {
-                themeModel.selectedLightTheme = theme
-            }
-            if colorScheme == .dark {
-                themeModel.selectedDarkTheme = theme
-            }
-        }
-    }
+    @State private var themeSearchQuery: String = ""
+    @State private var filteredThemes: [Theme] = []
 
     var body: some View {
-        SettingsForm {
-            Section {
-                changeThemeOnSystemAppearance
-                if settings.matchAppearance {
-                    alwaysUseDarkTerminalAppearance
+        VStack {
+            SettingsForm {
+                Section {
+                    HStack(spacing: 10) {
+                        SearchField("Search", text: $themeSearchQuery)
+
+                        Button {
+                            // As discussed, the expected behavior is to duplicate the selected theme.
+                            if let selectedTheme = themeModel.selectedTheme {
+                                if let fileURL = selectedTheme.fileURL {
+                                    themeModel.duplicate(fileURL)
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "plus")
+                        }
+                        .disabled(themeModel.selectedTheme == nil)
+                        .help("Create a new Theme")
+
+                        MenuWithButtonStyle(systemImage: "ellipsis", menu: {
+                            Group {
+                                Button {
+                                    themeModel.importTheme()
+                                } label: {
+                                    Text("Import Theme...")
+                                }
+                                Button {
+                                    themeModel.exportAllCustomThemes()
+                                } label: {
+                                    Text("Export All Custom Themes...")
+                                }
+                            }
+                        })
+                        .padding(.horizontal, 5)
+                        .help("Import or Export Custom Themes")
+                    }
                 }
-                useThemeBackground
-            }
-            Section {
-                VStack(spacing: 0) {
-                    if settings.matchAppearance {
-                        Picker("", selection: $selectedAppearance) {
-                            ForEach(ThemeSettingsAppearances.allCases, id: \.self) { tab in
-                                Text(tab.rawValue)
-                                    .tag(tab)
+                if themeSearchQuery.isEmpty {
+                    Section {
+                        changeThemeOnSystemAppearance
+                        if settings.matchAppearance {
+                            alwaysUseDarkTerminalAppearance
+                        }
+                        useThemeBackground
+                    }
+                }
+                Section {
+                    VStack(spacing: 0) {
+                        ForEach(filteredThemes) { theme in
+                            if let themeIndex = themeModel.themes.firstIndex(of: theme) {
+                                Divider().padding(.horizontal, 10)
+                                ThemeSettingsThemeRow(
+                                    theme: $themeModel.themes[themeIndex],
+                                    active: themeModel.getThemeActive(theme)
+                                ).id(theme)
                             }
                         }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .padding(10)
                     }
-                    VStack(spacing: 0) {
-                        ForEach(selectedAppearance == .dark ? themeModel.darkThemes : themeModel.lightThemes) { theme in
-                            Divider()
-                            ThemeSettingsThemeRow(
-                                theme: $themeModel.themes[themeModel.themes.firstIndex(of: theme)!],
-                                active: getThemeActive(theme),
-                                action: activateTheme
-                            ).id(theme)
-                        }
-                        ForEach(selectedAppearance == .dark ? themeModel.lightThemes : themeModel.darkThemes) { theme in
-                            Divider()
-                            ThemeSettingsThemeRow(
-                                theme: $themeModel.themes[themeModel.themes.firstIndex(of: theme)!],
-                                active: getThemeActive(theme),
-                                action: activateTheme
-                            ).id(theme)
+                    .padding(-10)
+                } footer: {
+                    HStack {
+                        Spacer()
+                        Button("Import...") {
+                            themeModel.importTheme()
                         }
                     }
+                    .padding(.top, 10)
                 }
-                .padding(-10)
+                .sheet(isPresented: $themeModel.detailsIsPresented, onDismiss: {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        themeModel.isAdding = false
+                    }
+                }, content: {
+                    if let theme = themeModel.detailsTheme, let index = themeModel.themes.firstIndex(where: {
+                        $0.fileURL?.absoluteString == theme.fileURL?.absoluteString
+                    }) {
+                        ThemeSettingsThemeDetails(theme: Binding(
+                            get: { themeModel.themes[index] },
+                            set: { newValue in
+                                if themeModel.detailsIsPresented {
+                                    themeModel.themes[index] = newValue
+                                    themeModel.save(newValue)
+                                    if settings.selectedTheme == theme.name {
+                                        themeModel.activateTheme(newValue)
+                                    }
+                                }
+                            }
+                        ))
+                    }
+                })
+                .onAppear {
+                    updateFilteredThemes()
+                }
+                .onChange(of: themeSearchQuery) { _ in
+                    updateFilteredThemes()
+                }
+                .onChange(of: themeModel.themes) { _ in
+                    updateFilteredThemes()
+                }
+                .onChange(of: colorScheme) { newColorScheme in
+                    updateFilteredThemes(overrideColorScheme: newColorScheme)
+                }
             }
         }
+    }
+
+    /// Sorts themes by `colorScheme` and `themeSearchQuery`.
+    /// Dark mode themes appear before light themes if in dark mode, and vice versa.
+    private func updateFilteredThemes(overrideColorScheme: ColorScheme? = nil) {
+        // This check is necessary because, when calling `updateFilteredThemes` from within the
+        // `onChange` handler that monitors the `colorScheme`, there are cases where the function
+        // is invoked with outdated values of `colorScheme`.
+        let isDarkScheme = overrideColorScheme ?? colorScheme == .dark
+
+        let themes: [Theme] = isDarkScheme
+        ? (themeModel.darkThemes + themeModel.lightThemes)
+        : (themeModel.lightThemes + themeModel.darkThemes)
+
+        Task {
+            filteredThemes = themeSearchQuery.isEmpty ? themes : await filterAndSortThemes(themes)
+        }
+    }
+
+    private func filterAndSortThemes(_ themes: [Theme]) async -> [Theme] {
+        return await themes.fuzzySearch(query: themeSearchQuery).map { $1 }
     }
 }
 

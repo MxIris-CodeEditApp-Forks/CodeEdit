@@ -11,8 +11,8 @@ import Combine
 
 /// A view that pops up a branch picker.
 struct ToolbarBranchPicker: View {
-    private var workspaceFileManager: CEWorkspaceFileManager?
-    private var sourceControlManager: SourceControlManager?
+    private weak var workspaceFileManager: CEWorkspaceFileManager?
+    private weak var sourceControlManager: SourceControlManager?
 
     @Environment(\.controlActiveState)
     private var controlActive
@@ -71,8 +71,10 @@ struct ToolbarBranchPicker: View {
             isHovering = active
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { (_) in
-            Task {
-                await sourceControlManager?.refreshCurrentBranch()
+            if self.currentBranch != nil {
+                Task {
+                    await sourceControlManager?.refreshCurrentBranch()
+                }
             }
         }
         .onReceive(
@@ -82,8 +84,10 @@ struct ToolbarBranchPicker: View {
             self.currentBranch = branch
         }
         .task {
-            await self.sourceControlManager?.refreshCurrentBranch()
-            await self.sourceControlManager?.refreshBranches()
+            if Settings.shared.preferences.sourceControl.general.sourceControlIsEnabled {
+                await self.sourceControlManager?.refreshCurrentBranch()
+                await self.sourceControlManager?.refreshBranches()
+            }
         }
     }
 

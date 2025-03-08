@@ -12,12 +12,14 @@ struct CodeEditApp: App {
     @NSApplicationDelegateAdaptor var appdelegate: AppDelegate
     @ObservedObject var settings = Settings.shared
 
-    @Environment(\.openWindow)
-    var openWindow
-
     let updater: SoftwareUpdater = SoftwareUpdater()
 
     init() {
+        // Register singleton services before anything else
+        ServiceContainer.register(
+            LSPService()
+        )
+
         _ = CodeEditDocumentController.shared
         NSMenuItem.swizzle()
         NSSplitViewItem.swizzle()

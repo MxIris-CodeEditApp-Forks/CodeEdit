@@ -9,12 +9,13 @@ import SwiftUI
 
 class FileSystemTableViewCell: StandardTableViewCell {
 
-    var fileItem: CEWorkspaceFile!
+    weak var fileItem: CEWorkspaceFile?
 
     var changeLabelLargeWidth: NSLayoutConstraint!
     var changeLabelSmallWidth: NSLayoutConstraint!
 
     private let prefs = Settings.shared.preferences.general
+    private var navigatorFilter: String?
 
     /// Initializes the `OutlineTableViewCell` with an `icon` and `label`
     /// Both the icon and label will be colored, and sized based on the user's preferences.
@@ -22,8 +23,11 @@ class FileSystemTableViewCell: StandardTableViewCell {
     ///   - frameRect: The frame of the cell.
     ///   - item: The file item the cell represents.
     ///   - isEditable: Set to true if the user should be able to edit the file name.
-    init(frame frameRect: NSRect, item: CEWorkspaceFile?, isEditable: Bool = true) {
+    ///   - navigatorFilter: An optional string use to filter the navigator area.
+    ///                      (Used for bolding and changing primary/secondary color).
+    init(frame frameRect: NSRect, item: CEWorkspaceFile?, isEditable: Bool = true, navigatorFilter: String? = nil) {
         super.init(frame: frameRect, isEditable: isEditable)
+        self.navigatorFilter = navigatorFilter
 
         if let item = item {
             addIcon(item: item)
@@ -38,15 +42,65 @@ class FileSystemTableViewCell: StandardTableViewCell {
 
     func addIcon(item: CEWorkspaceFile) {
         fileItem = item
-        icon.image = item.nsIcon
-        icon.contentTintColor = color(for: item)
-        toolTip = item.labelFileName()
-        label.stringValue = item.labelFileName()
+        imageView?.image = item.nsIcon
+        imageView?.contentTintColor = color(for: item)
+
+        let fileName = item.labelFileName()
+        let fontSize = textField?.font?.pointSize ?? 12
+
+        guard let filter = navigatorFilter?.trimmingCharacters(in: .whitespacesAndNewlines), !filter.isEmpty else {
+            textField?.stringValue = fileName
+            return
+        }
+
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.lineBreakMode = .byTruncatingMiddle
+
+        /// Initialize default attributes
+        let attributedString = NSMutableAttributedString(string: fileName, attributes: [
+            .paragraphStyle: paragraphStyle,
+            .font: NSFont.systemFont(ofSize: fontSize),
+            .foregroundColor: NSColor.secondaryLabelColor
+        ])
+
+        /// Check if the filename contains the filter text
+        let range = (fileName as NSString).range(of: filter, options: .caseInsensitive)
+        if range.location != NSNotFound {
+            /// If the filter text matches, bold the matching text and set primary label color
+            attributedString.addAttributes(
+                [
+                    .font: NSFont.boldSystemFont(ofSize: fontSize),
+                    .foregroundColor: NSColor.labelColor
+                ],
+                range: range
+            )
+        } else {
+            /// If no match, apply primary label color for parent folder,
+            /// or secondary label color for a non-matching file
+            attributedString.addAttribute(
+                .foregroundColor,
+                value: item.isFolder ? NSColor.labelColor : NSColor.secondaryLabelColor,
+                range: NSRange(location: 0, length: attributedString.length)
+            )
+        }
+
+        textField?.attributedStringValue = attributedString
     }
 
     func addModel() {
-        secondaryLabel.stringValue = fileItem.gitStatus?.description ?? ""
-        if secondaryLabel.stringValue == "?" { secondaryLabel.stringValue = "A" }
+        guard let fileItem = fileItem, let secondaryLabel = secondaryLabel else {
+            return
+        }
+
+        if fileItem.url.isSymbolicLink { secondaryLabel.stringValue = "􀰞" }
+
+        guard let gitStatus = fileItem.gitStatus?.description else {
+            return
+        }
+
+        if gitStatus == "?" { secondaryLabel.stringValue += "A" } else {
+            secondaryLabel.stringValue += gitStatus
+        }
     }
 
     /// *Not Implemented*
@@ -80,34 +134,45 @@ class FileSystemTableViewCell: StandardTableViewCell {
     /// - Parameter item: The `FileItem` to get the color for
     /// - Returns: A `NSColor` for the given `FileItem`.
     func color(for item: CEWorkspaceFile) -> NSColor {
-        if !item.isFolder && prefs.fileIconStyle == .color {
-            return NSColor(item.iconColor)
+        if prefs.fileIconStyle == .color {
+            if !item.isFolder {
+                return NSColor(item.iconColor)
+            } else {
+                return NSColor(named: "FolderBlue") ?? NSColor(.cyan)
+            }
         } else {
-            return NSColor(named: "FolderBlue")!
+            return NSColor(named: "CoolGray") ?? NSColor(.gray)
         }
+    }
+
+    deinit {
+        toolTip = nil
     }
 }
 
 let errorRed = NSColor(red: 1, green: 0, blue: 0, alpha: 0.2)
 extension FileSystemTableViewCell: NSTextFieldDelegate {
     func controlTextDidChange(_ obj: Notification) {
-        label.backgroundColor = fileItem.validateFileName(for: label?.stringValue ?? "") ? .none : errorRed
+        guard let fileItem else { return }
+        textField?.backgroundColor = fileItem.validateFileName(for: textField?.stringValue ?? "") ? .none : errorRed
     }
-    func controlTextDidEndEditing(_ obj: Notification) {
-        label.backgroundColor = fileItem.validateFileName(for: label?.stringValue ?? "") ? .none : errorRed
-        if fileItem.validateFileName(for: label?.stringValue ?? "") {
-            let newURL = fileItem.url.deletingLastPathComponent().appendingPathComponent(label?.stringValue ?? "")
-            workspace?.workspaceFileManager?.move(file: fileItem, to: newURL)
-        } else {
-            label?.stringValue = fileItem.labelFileName()
-        }
-    }
-}
 
-extension String {
-    var isValidFilename: Bool {
-        let regex = "[^:]"
-        let testString = NSPredicate(format: "SELF MATCHES %@", regex)
-        return !testString.evaluate(with: self)
+    func controlTextDidEndEditing(_ obj: Notification) {
+        guard let fileItem else { return }
+        do {
+            textField?.backgroundColor = fileItem.validateFileName(for: textField?.stringValue ?? "") ? .none : errorRed
+            if fileItem.validateFileName(for: textField?.stringValue ?? "") {
+                let newURL = fileItem.url
+                    .deletingLastPathComponent()
+                    .appending(path: textField?.stringValue ?? "")
+                try workspace?.workspaceFileManager?.move(file: fileItem, to: newURL)
+            } else {
+                textField?.stringValue = fileItem.labelFileName()
+            }
+        } catch {
+            let alert = NSAlert(error: error)
+            alert.addButton(withTitle: "Dismiss")
+            alert.runModal()
+        }
     }
 }

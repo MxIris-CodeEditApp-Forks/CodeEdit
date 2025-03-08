@@ -10,11 +10,12 @@ import SwiftUI
 struct ThemeSettingsThemeRow: View {
     @Binding var theme: Theme
     var active: Bool
-    var action: (Theme) -> Void
 
-    @State private var presentingDetails: Bool = false
+    @ObservedObject private var themeModel: ThemeModel = .shared
 
     @State private var isHovering = false
+
+    @State private var deleteConfirmationIsPresented = false
 
     var body: some View {
         HStack {
@@ -28,24 +29,57 @@ struct ThemeSettingsThemeRow: View {
                     .font(.footnote)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            Button {
-                presentingDetails = true
-            } label: {
-                Text("Details...")
+            if !active {
+                Button {
+                    themeModel.activateTheme(theme)
+                } label: {
+                    Text("Choose")
+                }
+                .buttonStyle(.bordered)
+                .opacity(isHovering ? 1 : 0)
             }
-            .buttonStyle(.bordered)
-            .opacity(isHovering ? 1 : 0)
             ThemeSettingsColorPreview(theme)
+            Menu {
+                Button("Details...") {
+                    themeModel.detailsTheme = theme
+                    themeModel.detailsIsPresented = true
+                }
+                Button("Duplicate...") {
+                    if let fileURL = theme.fileURL {
+                        themeModel.duplicate(fileURL)
+                    }
+                }
+                Button("Export...") {
+                    themeModel.exportTheme(theme)
+                }
+                .disabled(theme.isBundled)
+                Divider()
+                Button("Delete...") {
+                    deleteConfirmationIsPresented = true
+                }
+                .disabled(theme.isBundled)
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .font(.system(size: 16))
+            }
+            .buttonStyle(.icon)
         }
         .padding(10)
         .onHover { hovering in
             isHovering = hovering
         }
-        .onTapGesture {
-            action(theme)
-        }
-        .sheet(isPresented: $presentingDetails) {
-            ThemeSettingsThemeDetails($theme)
+        .alert(
+            Text("Are you sure you want to delete the theme “\(theme.displayName)”?"),
+            isPresented: $deleteConfirmationIsPresented
+        ) {
+            Button("Delete Theme") {
+                themeModel.delete(theme)
+            }
+            Button("Cancel") {
+                deleteConfirmationIsPresented = false
+            }
+        } message: {
+            Text("This action cannot be undone.")
         }
     }
 }

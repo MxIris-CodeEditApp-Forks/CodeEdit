@@ -10,6 +10,9 @@ import SwiftUI
 struct SourceControlNavigatorView: View {
     @EnvironmentObject private var workspace: WorkspaceDocument
 
+    @AppSettings(\.sourceControl.general.fetchRefreshServerStatus)
+    var fetchRefreshServerStatus
+
     var body: some View {
         if let sourceControlManager = workspace.workspaceFileManager?.sourceControlManager {
             VStack(spacing: 0) {
@@ -18,7 +21,9 @@ struct SourceControlNavigatorView: View {
                     .task {
                         do {
                             while true {
-                                try await sourceControlManager.fetch()
+                                if fetchRefreshServerStatus {
+                                    try await sourceControlManager.fetch()
+                                }
                                 try await Task.sleep(for: .seconds(10))
                             }
                         } catch {
@@ -48,14 +53,6 @@ struct SourceControlNavigatorTabs: View {
             .frame(maxWidth: .infinity)
             .frame(height: 27)
             .padding(.horizontal, 8)
-            .task {
-                do {
-                    try await sourceControlManager.refreshRemotes()
-                    try await sourceControlManager.refreshStashEntries()
-                } catch {
-                    await sourceControlManager.showAlertForError(title: "Error refreshing Git data", error: error)
-                }
-            }
             Divider()
             if selectedSection == 0 {
                 SourceControlNavigatorChangesView()

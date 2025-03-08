@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import CodeEditSymbols
 
 /// A struct for settings
 struct SettingsView: View {
@@ -131,10 +130,7 @@ struct SettingsView: View {
                             .padding(.leading, 22)
                     }
                 }
-            } else if
-                page.name.rawValue.lowercased().contains(searchText.lowercased()) &&
-                !page.isSetting
-            {
+            } else if page.name.rawValue.lowercased().contains(searchText.lowercased()) && !page.isSetting {
                 SettingsPageView(page, searchText: searchText)
             }
         } else if !page.isSetting {
@@ -148,6 +144,10 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationSplitView {
+            List { }
+                .searchable(text: $searchText, placement: .sidebar, prompt: "Search")
+                .scrollDisabled(true)
+                .frame(height: 30)
             List(selection: $selectedPage) {
                 Section {
                     ForEach(Self.pages) { pageAndSettings in
@@ -155,7 +155,6 @@ struct SettingsView: View {
                     }
                 }
             }
-            .searchable(text: $searchText, placement: .sidebar, prompt: "Search")
             .navigationSplitViewColumnWidth(215)
         } detail: {
             Group {
@@ -204,8 +203,6 @@ struct SettingsView: View {
         }
         .environmentObject(model)
         .onAppear {
-            selectedPage = Self.pages[0].page
-
             // Monitor for the F12 key down event to toggle the developer settings
             model.setKeyDownMonitor { event in
                 if event.keyCode == 111 {
